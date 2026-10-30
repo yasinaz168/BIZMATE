@@ -75,7 +75,7 @@ export function ComingSoon({ title, description, phase, icon: Icon, planned, ton
         <div className="md:col-span-2">
           <h3 className={cn("text-sm font-semibold", tone === "dark" ? "text-white" : "")}>Sementara itu:</h3>
           <p className={cn("mt-3 text-sm leading-relaxed", tone === "dark" ? "text-white/70" : "text-muted-foreground")}>
-            Dashboard dan halaman lain sudah aktif dengan data demo. Kamu bisa melihat arah desain aplikasi sebelum fitur ini selesai.
+            Dashboard sudah aktif dengan datamu yang asli dari database. Lihatlah arah desain aplikasi sebelum fitur ini selesai.
           </p>
           <Link
             href="/dashboard"

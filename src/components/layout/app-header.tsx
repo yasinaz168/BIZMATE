@@ -3,13 +3,13 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LayoutDashboard, ReceiptText, Bot, Package, BarChart3, Settings, LogIn } from "lucide-react";
+import { Menu, X, LayoutDashboard, ReceiptText, Bot, Package, BarChart3, Settings, LogOut } from "lucide-react";
 import { Logo } from "@/components/logo";
-import { Badge } from "@/components/ui/badge";
+import { signOutAction } from "@/app/(auth)/actions";
 import { cn } from "@/lib/utils";
 
 /**
- * Header aplikasi: judul halaman dinamis + notifikasi "Data Demo".
+ * Header aplikasi: judul halaman + identitas bisnis aktif + tombol keluar.
  * Di mobile, tombol hamburger membuka drawer navigasi.
  */
 
@@ -32,7 +32,7 @@ const DRAWER_ITEMS = [
   { label: "Pengaturan", href: "/pengaturan", icon: Settings },
 ] as const;
 
-export function AppHeader() {
+export function AppHeader({ businessName }: { businessName?: string | null }) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -55,11 +55,14 @@ export function AppHeader() {
   const isActive = (href: string) =>
     href === "/transaksi" ? pathname.startsWith("/transaksi") : pathname === href || pathname.startsWith(href + "/");
 
+  // Inisial untuk avatar: huruf pertama nama bisnis
+  const initial = (businessName ?? "B").trim().charAt(0).toUpperCase();
+
   return (
     <>
       <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur">
         <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             {/* Hamburger hanya tampil di mobile */}
             <button
               type="button"
@@ -70,20 +73,32 @@ export function AppHeader() {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <h1 className="text-lg font-bold tracking-tight">{title}</h1>
+            <h1 className="truncate text-lg font-bold tracking-tight">{title}</h1>
           </div>
 
           <div className="flex items-center gap-2.5">
-            <Badge variant="orange" className="hidden sm:inline-flex">
-              Data Demo · Tahap 1
-            </Badge>
             <span
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-deep text-xs font-bold text-white"
-              title="Akun demo — login diaktifkan di Tahap 2"
-              aria-label="Akun demo"
+              className="hidden max-w-[180px] truncate rounded-full border border-line bg-background px-3 py-1 text-xs font-medium text-muted-foreground sm:inline-block"
+              title={businessName ?? "Bisnismu"}
             >
-              R
+              {businessName ?? "Bisnismu"}
             </span>
+
+            {/* Keluar: server action, langsung fungsional */}
+            <form action={signOutAction}>
+              <button
+                type="submit"
+                title={`Keluar (${businessName ?? "akun"})`}
+                aria-label="Keluar dari BIZMATE"
+                className="flex h-9 items-center gap-2 rounded-full border border-line bg-surface px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:border-expense/30 hover:text-expense"
+              >
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-deep text-[11px] font-bold text-white">
+                  {initial}
+                </span>
+                <LogOut className="h-4 w-4 lg:hidden" />
+                <span className="hidden lg:inline">Keluar</span>
+              </button>
+            </form>
           </div>
         </div>
       </header>
@@ -108,6 +123,15 @@ export function AppHeader() {
                 <X className="h-5 w-5" />
               </button>
             </div>
+
+            {/* Identitas bisnis aktif */}
+            <div className="border-b border-line px-5 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Bisnis aktif</p>
+              <p className="mt-0.5 truncate text-sm font-semibold text-foreground">
+                {businessName ?? "Bisnismu"}
+              </p>
+            </div>
+
             <nav className="flex-1 space-y-1 p-3" aria-label="Navigasi utama">
               {DRAWER_ITEMS.map((item) => (
                 <Link
@@ -116,7 +140,7 @@ export function AppHeader() {
                   className={cn(
                     "flex items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-medium transition-colors",
                     isActive(item.href)
-                      ? "bg-primary/10 text-primary"
+                      ? "bg-primary/10 text-primary-ink"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                 >
@@ -126,16 +150,16 @@ export function AppHeader() {
               ))}
             </nav>
             <div className="border-t border-line p-4">
-              <Link
-                href="/login"
-                className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                <LogIn className="h-[18px] w-[18px]" />
-                Masuk / Ganti Akun
-              </Link>
-              <p className="mt-2 px-3.5 text-xs text-muted-foreground">
-                Login diaktifkan di Tahap 2.
-              </p>
+              {/* Di drawer juga bisa keluar */}
+              <form action={signOutAction}>
+                <button
+                  type="submit"
+                  className="flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <LogOut className="h-[18px] w-[18px]" />
+                  Keluar
+                </button>
+              </form>
             </div>
           </div>
         </div>

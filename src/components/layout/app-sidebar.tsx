@@ -28,7 +28,7 @@ const NAV_ITEMS = [
   { label: "Pengaturan", href: "/pengaturan", icon: Settings },
 ] as const;
 
-export function AppSidebar() {
+export function AppSidebar({ businessName }: { businessName?: string | null }) {
   const pathname = usePathname();
 
   const isActive = (href: string) => {
@@ -74,15 +74,18 @@ export function AppSidebar() {
         })}
       </nav>
 
-      {/* Info versi — jujur: autentikasi datang di Tahap 2 */}
+      {/* Identitas workspace — data asli dari database */}
       <div className="p-3">
         <div className="rounded-xl bg-white/5 p-4">
           <div className="flex items-center gap-2 text-xs font-semibold text-white">
             <ShieldCheck className="h-4 w-4 text-primary-bright" />
-            Workspace Demo
+            Bisnis aktif
           </div>
-          <p className="mt-1.5 text-xs leading-relaxed text-white/60">
-            Autentikasi &amp; data asli terhubung di Tahap 2.
+          <p className="mt-1.5 truncate text-sm font-semibold text-white" title={businessName ?? "Bisnismu"}>
+            {businessName ?? "Bisnismu"}
+          </p>
+          <p className="mt-0.5 text-xs text-white/60">
+            Data hanya bisa diakses akunmu (RLS aktif).
           </p>
         </div>
       </div>
