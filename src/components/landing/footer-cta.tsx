@@ -32,7 +32,7 @@ export function CtaSection() {
                 Sudah punya akun? Masuk →
               </Link>
             </div>
-            <p className="mt-6 text-xs text-white/40">
+            <p className="mt-6 text-xs text-white/60">
               Gratis untuk memulai · Data aman · Bahasa Indonesia
             </p>
           </div>

@@ -1,4 +1,8 @@
-/** Kepala seksi yang konsisten: eyebrow kecil + judul besar + subjudul. */
+/**
+ * Kepala seksi yang konsisten: eyebrow kecil + judul besar + subjudul.
+ * Di latar gelap (tone="dark"), eyebrow memakai primary-bright agar
+ * kontrasnya memenuhi WCAG AA (#087F73 di atas #123D38 hanya 2.45:1).
+ */
 export function SectionHeading({
   eyebrow,
   title,
@@ -15,9 +19,7 @@ export function SectionHeading({
   return (
     <div className={`max-w-2xl ${align === "center" ? "mx-auto text-center" : ""}`}>
       <span
-        className={`text-xs font-bold uppercase tracking-widest ${
-          tone === "dark" ? "text-primary" : "text-primary"
-        }`}
+        className={cnEyebrow(tone)}
       >
         {eyebrow}
       </span>
@@ -39,4 +41,9 @@ export function SectionHeading({
       )}
     </div>
   );
+}
+
+function cnEyebrow(tone: "default" | "dark") {
+  const base = "text-xs font-bold uppercase tracking-widest";
+  return tone === "dark" ? `${base} text-primary-bright` : `${base} text-primary-ink`;
 }

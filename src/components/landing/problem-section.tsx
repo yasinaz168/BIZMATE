@@ -32,7 +32,7 @@ const PROBLEMS = [
 /** Problem Section: masalah nyata UMKM yang BIZMATE selesaikan. */
 export function ProblemSection() {
   return (
-    <section className="bg-surface py-16 lg:py-20" id="masalah">
+    <section className="bg-surface py-16 lg:py-24" id="masalah">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
           eyebrow="Masalah UMKM"

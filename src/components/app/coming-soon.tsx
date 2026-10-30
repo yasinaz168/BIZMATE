@@ -47,7 +47,7 @@ export function ComingSoon({ title, description, phase, icon: Icon, planned, ton
               <h2 className={cn("text-xl font-bold tracking-tight", tone === "dark" ? "text-white" : "text-foreground")}>
                 {title}
               </h2>
-              <Badge variant={tone === "dark" ? "default" : "orange"}>
+              <Badge variant={tone === "dark" ? "on-dark" : "orange"}>
                 <Sparkles className="h-3 w-3" />
                 Dalam pengembangan · {phase}
               </Badge>

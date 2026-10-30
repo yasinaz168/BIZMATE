@@ -22,8 +22,8 @@ export function AiInsightCard({ headline, bullets }: AiInsightProps) {
         aria-hidden="true"
         className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/30 blur-3xl"
       />
-      <div className="relative">
-        <div className="flex items-center gap-2.5">
+        <div className="relative">
+          <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-white">
             <Bot className="h-5 w-5" strokeWidth={2.2} />
           </span>
@@ -41,14 +41,14 @@ export function AiInsightCard({ headline, bullets }: AiInsightProps) {
             <li key={i} className="flex gap-2.5 text-sm leading-relaxed text-white/70">
               <span
                 aria-hidden="true"
-                className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
+                className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-primary-bright"
               />
               {bullet}
             </li>
           ))}
         </ul>
 
-        <p className="mt-4 flex items-start gap-1.5 text-xs text-white/50">
+        <p className="mt-4 flex items-start gap-1.5 text-xs text-white/60">
           <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           Ini ringkasan contoh. Analisis AI yang sebenarnya aktif di Tahap 7, dengan data bisnismu yang nyata.
         </p>

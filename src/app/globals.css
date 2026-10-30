@@ -12,11 +12,21 @@
     --surface: 255 255 255;          /* #FFFFFF */
     --foreground: 23 43 40;          /* #172B28 */
     --muted: 238 243 241;            /* abu kehijauan sangat lembut */
-    --muted-foreground: 113 129 125; /* #71817D */
+    /* Teks sekunder: #5E6E69 — hue sama dengan #71817D, digelapkan agar
+       lolos WCAG AA 4.5:1 di latar putih DAN #F4F7F6 (nilainya 3.79/4.08) */
+    --muted-foreground: 94 110 105;
     --line: 220 229 226;             /* #DCE5E2 */
     --income: 8 127 115;             /* pemasukan = warna primary */
-    --expense: 208 69 62;            /* merah bata lembut untuk pengeluaran */
+    /* Merah bata: versi lebih gelap dari #D0453E agar teks pengeluaran
+       tetap terbaca (4.15:1 → 5.3:1) */
+    --expense: 184 54 47;            /* #B8362F */
     --ring: 8 127 115;
+    /* Primary versi "tinta" untuk TEKS di latar terang — #087F73 sendiri
+       hanya 4.39:1 di putih, di bawah syarat AA untuk teks kecil */
+    --primary-ink: 6 106 97;         /* #066A61 */
+    /* Primary versi terang untuk TEKS/AKSEN di atas hijau gelap —
+       #087F73 di atas #123D38 hanya 2.45:1 */
+    --primary-bright: 76 201 184;    /* #4CC9B8 */
   }
 
   * {

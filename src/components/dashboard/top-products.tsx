@@ -36,7 +36,7 @@ export function TopProducts({ products }: { products: TopProduct[] }) {
             <span className="block truncate text-sm font-medium text-foreground">{product.name}</span>
             <span className="block text-xs text-muted-foreground">{product.sold} terjual</span>
           </span>
-          <span className="shrink-0 text-sm font-semibold text-foreground">
+          <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
             {formatIDR(product.revenue)}
           </span>
         </li>

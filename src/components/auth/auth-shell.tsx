@@ -44,11 +44,11 @@ export function AuthShell({
           </ul>
         </div>
 
-        <p className="relative text-xs text-white/40">© {new Date().getFullYear()} BIZMATE</p>
+        <p className="relative text-xs text-white/60">© {new Date().getFullYear()} BIZMATE</p>
       </div>
 
       {/* Area form */}
-      <div className="flex flex-col">
+      <main className="flex flex-col">
         <div className="flex items-center justify-between p-5 lg:hidden">
           <Link href="/" aria-label="Kembali ke beranda BIZMATE">
             <Logo variant="dark" />
@@ -74,7 +74,7 @@ export function AuthShell({
             <div className="mt-6 text-sm text-muted-foreground">{footer}</div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
@@ -82,7 +82,7 @@ export function AuthShell({
 function Benefit({ icon: Icon, text }: { icon: React.ComponentType<{ className?: string }>; text: string }) {
   return (
     <li className="flex items-center gap-3 text-sm text-white/80">
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20 text-primary ring-1 ring-inset ring-white/10">
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20 text-primary-bright ring-1 ring-inset ring-white/10">
         <Icon className="h-4 w-4" />
       </span>
       {text}

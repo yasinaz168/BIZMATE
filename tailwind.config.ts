@@ -31,6 +31,8 @@ const config: Config = {
         primary: {
           DEFAULT: "rgb(var(--primary) / <alpha-value>)",
           deep: "rgb(var(--primary-deep) / <alpha-value>)",
+          bright: "rgb(var(--primary-bright) / <alpha-value>)",
+          ink: "rgb(var(--primary-ink) / <alpha-value>)",
           foreground: "rgb(var(--primary-foreground) / <alpha-value>)",
         },
         income: "rgb(var(--income) / <alpha-value>)",

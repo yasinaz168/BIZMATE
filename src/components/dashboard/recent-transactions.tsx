@@ -32,7 +32,7 @@ export function RecentTransactions({ transactions }: { transactions: Transaction
         {transactions.map((t) => (
           <TableRow key={t.id}>
             <TableCell className="whitespace-nowrap text-muted-foreground">{t.date}</TableCell>
-            <TableCell className="max-w-[180px] truncate font-medium sm:max-w-none">
+            <TableCell className="max-w-[130px] truncate font-medium sm:max-w-none">
               {t.title}
             </TableCell>
             <TableCell>
@@ -45,8 +45,8 @@ export function RecentTransactions({ transactions }: { transactions: Transaction
             </TableCell>
             <TableCell
               className={cn(
-                "whitespace-nowrap text-right font-semibold",
-                t.type === "income" ? "text-income" : "text-expense"
+                "whitespace-nowrap text-right font-semibold tabular-nums",
+                t.type === "income" ? "text-primary-ink" : "text-expense"
               )}
             >
               {t.type === "income" ? "+" : "−"} {formatIDR(t.amount)}

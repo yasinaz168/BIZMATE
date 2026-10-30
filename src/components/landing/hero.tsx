@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { DashboardPreview } from "@/components/landing/dashboard-preview";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, Sparkles } from "lucide-react";
 
 /** Hero: headline, subheadline, CTA, dan mockup dashboard. */
 export function Hero() {
@@ -16,7 +16,7 @@ export function Hero() {
       <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-10 lg:px-8">
         <div className="animate-fade-up">
           <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3.5 py-1.5 text-xs font-semibold text-primary shadow-card">
-            <Check className="h-3.5 w-3.5" />
+            <Sparkles className="h-3.5 w-3.5" />
             Untuk UMKM Indonesia
           </span>
 

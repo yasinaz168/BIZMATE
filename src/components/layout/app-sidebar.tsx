@@ -78,10 +78,10 @@ export function AppSidebar() {
       <div className="p-3">
         <div className="rounded-xl bg-white/5 p-4">
           <div className="flex items-center gap-2 text-xs font-semibold text-white">
-            <ShieldCheck className="h-4 w-4 text-primary" />
+            <ShieldCheck className="h-4 w-4 text-primary-bright" />
             Workspace Demo
           </div>
-          <p className="mt-1.5 text-xs leading-relaxed text-white/50">
+          <p className="mt-1.5 text-xs leading-relaxed text-white/60">
             Autentikasi &amp; data asli terhubung di Tahap 2.
           </p>
         </div>

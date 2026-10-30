@@ -42,11 +42,11 @@ export function DashboardPreview() {
           {/* Grafik + produk */}
           <div className="mt-2.5 grid grid-cols-5 gap-2.5">
             <div className="col-span-3 rounded-xl border border-white/10 bg-white/[0.04] p-3">
-              <p className="text-[10px] font-medium text-white/50">Tren Penjualan</p>
+              <p className="text-[10px] font-medium text-white/60">Tren Penjualan</p>
               <ChartMockup />
             </div>
             <div className="col-span-2 rounded-xl border border-white/10 bg-white/[0.04] p-3">
-              <p className="mb-2 text-[10px] font-medium text-white/50">Produk Terlaris</p>
+              <p className="mb-2 text-[10px] font-medium text-white/60">Produk Terlaris</p>
               <ul className="space-y-2">
                 {[
                   { name: "Kopi Susu", pct: 92 },
@@ -106,7 +106,7 @@ function MiniStat({
 }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5">
-      <p className="truncate text-[9px] font-medium text-white/50">{label}</p>
+      <p className="truncate text-[9px] font-medium text-white/60">{label}</p>
       <p className="mt-0.5 truncate text-[13px] font-bold text-white">{value}</p>
     </div>
   );

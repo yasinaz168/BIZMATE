@@ -36,7 +36,8 @@ export const metadata = { title: "Dashboard" };
 export default function DashboardPage() {
   const greeting = "Selamat datang kembali!";
   const today = new Date();
-  const dayLabel = `${getDayName(today)}, ${today.getDate()} ${today.toLocaleDateString("id-ID", { month: "long" })} ${today.getFullYear()}`;
+  const monthLabel = today.toLocaleDateString("id-ID", { month: "long" });
+  const dayLabel = `${getDayName(today)}, ${today.getDate()} ${monthLabel} ${today.getFullYear()}`;
 
   return (
     <div className="space-y-6">
@@ -60,7 +61,7 @@ export default function DashboardPage() {
           label="Penjualan Bulan Ini"
           value={formatIDR(DEMO_STATS.monthSales)}
           icon={TrendingUp}
-          hint="Oktober 2026"
+          hint={`${monthLabel} ${today.getFullYear()}`}
         />
         <StatCard
           label="Transaksi Bulan Ini"
@@ -88,10 +89,10 @@ export default function DashboardPage() {
                 Estimasi
               </span>
             </div>
-            <p className="mt-1 text-2xl font-bold tracking-tight">{formatIDR(DEMO_STATS.monthProfit)}</p>
+            <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight sm:text-3xl">{formatIDR(DEMO_STATS.monthProfit)}</p>
           </div>
           <div className="flex items-start gap-2 rounded-xl bg-white/5 px-4 py-3 sm:max-w-md">
-            <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary-bright" />
             <p className="text-xs leading-relaxed text-white/60">
               Pemasukan dikurangi pengeluaran. Bukan keuntungan pasti — agar akurat,
               catat <strong className="text-white/80">modal per produk</strong> (tersedia di Tahap 3).
@@ -110,7 +111,7 @@ export default function DashboardPage() {
             </div>
             <Link
               href="/laporan"
-              className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+              className="inline-flex items-center gap-1 text-sm font-medium text-primary-ink hover:underline"
             >
               Lihat laporan
               <ArrowRight className="h-4 w-4" />
@@ -142,7 +143,7 @@ export default function DashboardPage() {
             </div>
             <Link
               href="/transaksi"
-              className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+              className="inline-flex items-center gap-1 text-sm font-medium text-primary-ink hover:underline"
             >
               Lihat semua
               <ArrowRight className="h-4 w-4" />

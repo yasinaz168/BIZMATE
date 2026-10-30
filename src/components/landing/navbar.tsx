@@ -79,7 +79,7 @@ export function LandingNavbar() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted"
+                className="rounded-lg px-3 py-3 text-sm font-medium text-foreground hover:bg-muted"
               >
                 {link.label}
               </Link>
@@ -87,7 +87,7 @@ export function LandingNavbar() {
             <Link
               href="/login"
               onClick={() => setOpen(false)}
-              className="rounded-lg px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-muted"
+              className="rounded-lg px-3 py-3 text-sm font-semibold text-foreground hover:bg-muted"
             >
               Login
             </Link>
