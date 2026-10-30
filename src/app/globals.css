@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* BIZMATE palette (RGB channels → dipakai Tailwind via rgb(var(--x) / alpha)) */
+    --primary: 8 127 115;            /* #087F73 */
+    --primary-deep: 18 61 56;        /* #123D38 */
+    --primary-foreground: 255 255 255;
+    --background: 244 247 246;       /* #F4F7F6 */
+    --surface: 255 255 255;          /* #FFFFFF */
+    --foreground: 23 43 40;          /* #172B28 */
+    --muted: 238 243 241;            /* abu kehijauan sangat lembut */
+    --muted-foreground: 113 129 125; /* #71817D */
+    --line: 220 229 226;             /* #DCE5E2 */
+    --income: 8 127 115;             /* pemasukan = warna primary */
+    --expense: 208 69 62;            /* merah bata lembut untuk pengeluaran */
+    --ring: 8 127 115;
+  }
+
+  * {
+    @apply border-line;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Fokus state yang konsisten & aksesibel */
+  :focus-visible {
+    outline: 2px solid rgb(var(--ring));
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: rgb(var(--primary) / 0.15);
+  }
+}
+
+@layer utilities {
+  /* Lebar konten yang nyaman dibaca di halaman aplikasi */
+  .page-container {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8;
+  }
+}
