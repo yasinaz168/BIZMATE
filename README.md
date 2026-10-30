@@ -102,7 +102,11 @@ src/
       protected routes, profil bisnis, dashboard memakai data asli
       (data demo Tahap 1 dihapus)
 - [ ] **Tahap 3** — Produk & transaksi manual (CRUD)
-- [ ] **Tahap 4** — AI Chat Transaction (LLM via backend)
+- [x] **Tahap 4** — AI Chat Transaction: chat Bahasa Indonesia → intent
+      terstruktur (LLM kompatibel OpenAI via server; fallback **Mode
+      Simulasi** berlabel saat `LLM_API_KEY` belum ada), validator server,
+      preview yang bisa diedit, konfirmasi pengguna, simpan via
+      `/api/assistant/save` (total dihitung server), dashboard ikut terupdate
 - [ ] **Tahap 5** — AI Receipt Scanner (OCR, mock mode berlabel)
 - [ ] **Tahap 6** — Laporan & grafik dari database
 - [ ] **Tahap 7** — AI Business Insights (LLM)
