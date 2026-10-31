@@ -12,6 +12,21 @@
 .DS_Store
 *.pem
 
+# kredensial Google Cloud / service account — JANGAN PERNAH di-commit
+*service-account*.json
+*service_account*.json
+*serviceAccount*.json
+*credentials*.json
+*credentials*.pem
+service-account*.json
+application_default_credentials.json
+bizmate-ocr-service*.json
+*-key.json
+*_key.json
+secrets/
+*.p12
+*.pfx
+
 # debug
 npm-debug.log*
 yarn-debug.log*

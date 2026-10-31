@@ -1,19 +1,17 @@
 import { createBrowserClient } from "@supabase/ssr";
-import { isSupabaseConfigured } from "./config";
+import { getSupabaseConfig } from "./config";
 
 /**
- * Supabase client untuk BROWSER (aman — hanya pakai anon key).
- * URL & anon key diambil dari environment variables, tidak pernah
+ * Supabase client untuk BROWSER (aman — hanya publishable/anon key).
+ * URL & key diambil dari environment variables, tidak pernah
  * ditulis di source code.
  */
 export function createClient() {
-  if (!isSupabaseConfigured()) {
+  const config = getSupabaseConfig();
+  if (!config) {
     throw new Error(
-      "Supabase belum dikonfigurasi. Isi NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY di .env.local"
+      "Supabase belum dikonfigurasi. Isi NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY di .env.local"
     );
   }
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  return createBrowserClient(config.url, config.key);
 }

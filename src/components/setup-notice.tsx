@@ -19,7 +19,7 @@ export function SetupNotice() {
           <Step
             icon={ExternalLink}
             title="1. Buat project Supabase"
-            text="Buka supabase.com → New Project. Simpan Project URL dan anon public key dari menu Project → Settings → API."
+            text="Buka supabase.com → New Project. Simpan Project URL dan publishable key dari menu Project → Settings → API Keys."
           />
           <Step
             icon={Database}
@@ -30,7 +30,7 @@ export function SetupNotice() {
             icon={LayoutDashboard}
             title="3. Isi .env.local lalu restart dev server"
             text={
-              'Copy .env.example menjadi .env.local, isi NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY, lalu jalankan "npm run dev" lagi. Daftarkan juga http://localhost:3000/auth/callback di Supabase → Authentication → URL Configuration → Redirect URLs.'
+              'Copy .env.example menjadi .env.local, isi NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, lalu jalankan "npm run dev" lagi. Daftarkan juga http://localhost:3000/auth/callback di Supabase → Authentication → URL Configuration → Redirect URLs.'
             }
           />
         </ol>
@@ -38,8 +38,8 @@ export function SetupNotice() {
         <div className="mt-6 flex items-start gap-2.5 rounded-xl bg-muted p-4 text-xs leading-relaxed text-muted-foreground">
           <CircleHelp className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
           <span>
-            Anon key aman untuk browser dan bukan rahasia. Yang rahasia adalah service role key
-            — key itu tidak boleh masuk ke aplikasi ini atau diekspos ke browser.
+            Publishable key aman untuk browser dan bukan rahasia. Yang rahasia adalah secret
+            key / service role key — key itu tidak boleh masuk ke aplikasi ini atau diekspos ke browser.
           </span>
         </div>
       </div>

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { translateAuthError } from "@/lib/auth-errors";
+import { safeInternalPath } from "@/lib/utils";
 
 /**
  * Server actions untuk autentikasi.
@@ -15,11 +16,10 @@ export type AuthFormState = {
   success?: string;
 };
 
-/** Path tujuan setelah login. Selalu path internal ("/..."), bukan URL luar. */
+/** Path tujuan setelah login. Selalu path internal yang aman ("/..."),
+ *  bukan URL luar — memakai safeInternalPath (proteksi open redirect). */
 function safeNextPath(raw: FormDataEntryValue | null): string {
-  const value = typeof raw === "string" ? raw : "";
-  if (value.startsWith("/") && !value.startsWith("//")) return value;
-  return "/dashboard";
+  return safeInternalPath(raw, "/dashboard");
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

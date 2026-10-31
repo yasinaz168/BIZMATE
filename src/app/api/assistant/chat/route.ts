@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { runAssistant } from "@/lib/ai/llm";
 import { validateTransaction } from "@/lib/ai/validate";
-import type { ChatMessage } from "@/lib/ai/types";
+import { logAppError, logDbError } from "@/lib/server-log";
+import type { ChatMessage, ValidatedTransaction } from "@/lib/ai/types";
 
 /**
  * POST /api/assistant/chat
@@ -82,6 +83,10 @@ export async function POST(request: Request) {
       .select("id")
       .single();
     if (error || !created) {
+      logDbError(
+        { route: "api/assistant/chat", table: "ai_conversations", op: "insert" },
+        error
+      );
       return NextResponse.json({ error: "Gagal memulai percakapan." }, { status: 500 });
     }
     conversationId = created.id;
@@ -115,27 +120,53 @@ Jawaban asisten sebelumnya: ${row.content}`
     content: message,
   });
   if (userMsgError) {
+    logDbError(
+      {
+        route: "api/assistant/chat",
+        table: "ai_messages",
+        op: "insert",
+        step: "pesan pengguna",
+      },
+      userMsgError
+    );
     return NextResponse.json({ error: "Gagal menyimpan pesan." }, { status: 500 });
   }
 
   // ---------- panggil LLM / simulasi ----------
-  const result = await runAssistant(history, business.name);
+  // Dibungkus try/catch: output LLM/parser adalah data tak terpercaya.
+  // Bila terjadi kesalahan tak terduga di tahap ini (mis. data tanggal
+  // yang mustahil), responsnya JSON error yang aman — bukan exception
+  // polos yang berubah menjadi HTTP 500 tanpa pesan.
+  let simulationMode = true;
+  let safeTransaction: ValidatedTransaction | null = null;
+  let replyText = "";
 
-  // Validasi hasil (LLM TIDAK dipercaya mentah) — untuk ditandai di reply
-  const validated = result.parsed.transaction
-    ? validateTransaction(result.parsed.transaction)
-    : null;
-  const safeTransaction = validated?.valid ? validated.data : null;
-  const replyText =
-    result.parsed.transaction && !validated?.valid
-      ? `Data transaksinya belum lengkap: ${validated?.errors.join(" ")} — tolong tuliskan lebih rinci ya.`
-      : result.parsed.reply;
+  try {
+    const result = await runAssistant(history, business.name);
+    simulationMode = result.simulationMode;
+
+    // Validasi hasil (LLM TIDAK dipercaya mentah) — untuk ditandai di reply
+    const validated = result.parsed.transaction
+      ? validateTransaction(result.parsed.transaction)
+      : null;
+    safeTransaction = validated?.valid ? validated.data : null;
+    replyText =
+      result.parsed.transaction && !validated?.valid
+        ? `Data transaksinya belum lengkap: ${validated?.errors.join(" ")} — tolong tuliskan lebih rinci ya.`
+        : result.parsed.reply;
+  } catch (error) {
+    logAppError("api/assistant/chat: proses pesan", error);
+    return NextResponse.json(
+      { error: "Maaf, terjadi kesalahan saat memproses pesanmu. Silakan coba kirim lagi." },
+      { status: 500 }
+    );
+  }
 
   // ---------- simpan balasan assistant ----------
   const structured: Record<string, unknown> = {
     reply: replyText,
     action_type: safeTransaction ? "transaction_ready" : "none",
-    simulation_mode: result.simulationMode,
+    simulation_mode: simulationMode,
   };
   if (safeTransaction) structured.transaction = safeTransaction;
 
@@ -151,6 +182,15 @@ Jawaban asisten sebelumnya: ${row.content}`
     .single();
 
   if (assistantMsgError || !assistantMsg) {
+    logDbError(
+      {
+        route: "api/assistant/chat",
+        table: "ai_messages",
+        op: "insert",
+        step: "balasan AI",
+      },
+      assistantMsgError
+    );
     return NextResponse.json({ error: "Gagal menyimpan balasan." }, { status: 500 });
   }
 
@@ -168,6 +208,6 @@ Jawaban asisten sebelumnya: ${row.content}`
     aiMessageId: assistantMsg.id,
     conversationId,
     isNewConversation,
-    simulationMode: result.simulationMode,
+    simulationMode,
   });
 }

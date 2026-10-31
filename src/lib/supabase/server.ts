@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { isSupabaseConfigured } from "./config";
+import { getSupabaseConfig } from "./config";
 
 /**
  * Supabase client untuk SERVER (server components, server actions,
@@ -8,33 +8,30 @@ import { isSupabaseConfigured } from "./config";
  * sudah pasti di-refresh oleh middleware.ts
  */
 export async function createClient() {
-  if (!isSupabaseConfigured()) {
+  const config = getSupabaseConfig();
+  if (!config) {
     throw new Error(
-      "Supabase belum dikonfigurasi. Isi NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY di .env.local"
+      "Supabase belum dikonfigurasi. Isi NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY di .env.local"
     );
   }
 
   const cookieStore = await cookies();
 
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // Dipanggil dari Server Component — aman diabaikan karena
-            // middleware yang melakukan refresh session.
-          }
-        },
+  return createServerClient(config.url, config.key, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
       },
-    }
-  );
+      setAll(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          );
+        } catch {
+          // Dipanggil dari Server Component — aman diabaikan karena
+          // middleware yang melakukan refresh session.
+        }
+      },
+    },
+  });
 }

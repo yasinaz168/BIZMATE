@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { safeInternalPath } from "@/lib/utils";
 
 /**
  * /auth/callback — tautan verifikasi email Supabase mengarah ke sini.
@@ -20,8 +21,8 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      const next = searchParams.get("next");
-      const target = next && next.startsWith("/") && !next.startsWith("//") ? next : "/onboarding";
+      // Hanya terima path internal yang aman (proteksi open redirect, ISS-1)
+      const target = safeInternalPath(searchParams.get("next"), "/onboarding");
       return NextResponse.redirect(`${origin}${target}`);
     }
   }

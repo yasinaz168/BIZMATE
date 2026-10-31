@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { validateTransaction } from "@/lib/ai/validate";
+import { logDbError } from "@/lib/server-log";
 import { formatIDR } from "@/lib/format";
 
 /**
@@ -81,6 +82,15 @@ export async function POST(request: Request) {
     .single();
 
   if (error || !inserted) {
+    logDbError(
+      {
+        route: "api/assistant/save",
+        table: "transactions",
+        op: "insert",
+        step: "konfirmasi pengguna",
+      },
+      error
+    );
     return NextResponse.json({ error: "Gagal menyimpan transaksi ke database." }, { status: 500 });
   }
 

@@ -13,7 +13,9 @@ import { jakartaTodayISO } from "@/lib/time";
  * - Tidak ada yang lolos tanpa diperiksa di SERVER — hasil parse LLM
  *   ataupun hasil edit pengguna di preview DUA-duanya lewat sini.
  * - Total SELALU dihitung di sini (backend), bukan dipercaya dari browser.
- * - Tanggal masa depan ditolak; tanggal "YYYY-MM-DD" dipakai sebagai
+ * - Tanggal masa depan ditolak; tanggal mustahil yang tidak ada di
+ *   kalender (bulan 00/13, tanggal 00, 31 Feb) juga ditolak, bukan
+ *   digeser diam-diam; tanggal "YYYY-MM-DD" dipakai sebagai
  *   hari kalender Jakarta (WIB, tengah hari 12:00 agar aman dari shift).
  * - Kembalikan daftar error dalam Bahasa Indonesia agar bisa
  *   langsung ditampilkan ke pengguna.
@@ -29,6 +31,27 @@ const PAYMENT_METHODS: readonly PaymentMethod[] = [
 ];
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+/**
+ * Validitas tanggal kalender NYATA (bukan sekadar bentuk YYYY-MM-DD).
+ * Menolak tanggal mustahil yang tetap lolos regex: bulan 00/13,
+ * tanggal 00, 31 Februari, 30 April, 29 Februari di tahun non-kabisat.
+ * Tidak memakai `new Date()` sehingga mustahil melempar exception.
+ */
+function isValidCalendarDate(isoDay: string): boolean {
+  const year = Number(isoDay.slice(0, 4));
+  const month = Number(isoDay.slice(5, 7));
+  const day = Number(isoDay.slice(8, 10));
+  if (month < 1 || month > 12) return false;
+  const maxDay = month === 2 && isLeapYear(year) ? 29 : DAYS_IN_MONTH[month - 1];
+  return day >= 1 && day <= maxDay;
+}
 
 export interface ValidationResult {
   valid: boolean;
@@ -90,25 +113,29 @@ export function validateTransaction(raw: unknown): ValidationResult {
   }
 
   // ---------- transacted_at ----------
-  let transactedIso: string;
   let transactedDay: string;
   const rawDate = input.transacted_at;
   if (rawDate === null || rawDate === undefined || rawDate === "") {
     transactedDay = jakartaTodayISO();
   } else if (typeof rawDate === "string" && ISO_DATE_RE.test(rawDate)) {
-    // Regangkan (clamp) ke masa lalu — tanggal masa depan tidak valid
-    const today = jakartaTodayISO();
-    if (rawDate > today) {
-      errors.push("Tanggal transaksi tidak boleh di masa depan.");
+    if (!isValidCalendarDate(rawDate)) {
+      // Bentuk YYYY-MM-DD benar tetapi tanggalnya tidak ada di kalender
+      // (mis. 2026-13-45, 2026-00-10, 2026-10-00, 2026-02-30)
+      errors.push(
+        "Tanggal transaksi tidak valid (bulan atau tanggalnya tidak ada di kalender)."
+      );
+    } else {
+      // Regangkan (clamp) ke masa lalu — tanggal masa depan tidak valid
+      const today = jakartaTodayISO();
+      if (rawDate > today) {
+        errors.push("Tanggal transaksi tidak boleh di masa depan.");
+      }
     }
     transactedDay = rawDate;
   } else {
     errors.push("Format tanggal harus YYYY-MM-DD.");
     transactedDay = jakartaTodayISO();
   }
-  // 12:00 WIB agar transaksi "hari ini" tidak bergeser ke kemarin
-  // (ditukar ke ISO UTC untuk disimpan sebagai timestamptz)
-  transactedIso = new Date(`${transactedDay}T12:00:00+07:00`).toISOString();
 
   // ---------- notes ----------
   const rawNotes = typeof input.notes === "string" ? input.notes.trim() : "";
@@ -119,6 +146,12 @@ export function validateTransaction(raw: unknown): ValidationResult {
   if (errors.length > 0) {
     return { valid: false, errors, data: null };
   }
+
+  // 12:00 WIB agar transaksi "hari ini" tidak bergeser ke kemarin
+  // (ditukar ke ISO UTC untuk disimpan sebagai timestamptz).
+  // Dihitung SETELAH lolos validasi: tanggal dijamin benar-benar ada
+  // di kalender sehingga konversi di bawah tidak pernah melempar error.
+  const transactedIso = new Date(`${transactedDay}T12:00:00+07:00`).toISOString();
 
   const total = Math.round(quantity * unitPrice);
 

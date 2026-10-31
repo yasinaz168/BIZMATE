@@ -15,6 +15,8 @@
 -- 0. Utilitas
 -- ---------------------------------------------------------------------
 
+begin;
+
 -- Kolom updated_at otomatis terisi
 create or replace function public.set_updated_at()
 returns trigger
@@ -334,3 +336,5 @@ create policy "ai_messages_select_own" on public.ai_messages
 drop policy if exists "ai_messages_insert_own" on public.ai_messages;
 create policy "ai_messages_insert_own" on public.ai_messages
   for insert with check (public.is_conversation_owner(conversation_id));
+
+commit;

@@ -40,30 +40,57 @@ Buka [http://localhost:3000](http://localhost:3000).
 ## Setup Supabase (WAJIB untuk fitur akun & data)
 
 1. **Buat project** di [supabase.com](https://supabase.com) (gratis).
-2. **Jalankan migration**: buka menu *SQL Editor* → paste isi
-   `supabase/migrations/00001_core_schema.sql` → *Run*.
+2. **Jalankan migration secara BERURUTAN** — buka menu *SQL Editor* →
+   paste isi file → *Run*, satu file per langkah:
+
+   1. `supabase/migrations/00001_core_schema.sql`
+      Skema inti (7 tabel) + RLS dasar.
+      **Khusus database yang masih kosong** — jangan dijalankan ulang
+      pada database yang sudah berisi data.
+   2. `supabase/migrations/00002_transaction_items_security.sql`
+      Integritas item transaksi: FK komposit, trigger validasi produk,
+      policy UPDATE.
+      **Prasyarat:** langkah 1 sudah sukses.
+      Idempotent — aman dijalankan berulang.
+   3. `supabase/migrations/00003_security_hardening.sql`
+      Security hardening: menutup oracle lintas-tenant, mengunci
+      `search_path` function, menambah policy `profiles` (INSERT) dan
+      `ai_conversations` (UPDATE), serta index `product_id`.
+      **Prasyarat:** langkah 2 sudah sukses (diperiksa otomatis oleh
+      migrasi ini — berhenti dengan pesan jelas bila belum terpenuhi).
+      Idempotent — aman dijalankan berulang.
+
+   > Selalu buat **backup/snapshot database** sebelum menjalankan migration.
+   > Semua migration bersifat *forward-only*; jika gagal di tengah,
+   > `00002`/`00003` akan rollback bersih (dibungkus transaksi) dan aman
+   > dijalankan ulang.
 3. **Daftarkan redirect URL**: *Authentication → URL Configuration → Redirect URLs* →
    tambah `http://localhost:3000/auth/callback`.
 4. **Isi `.env.local`** (salin dari `.env.example`):
 
    ```
    NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
    ```
+
+   > `NEXT_PUBLIC_SUPABASE_ANON_KEY` (nama lama) masih didukung sebagai fallback.
 
 5. **Restart** dev server.
 
 Jika `.env.local` belum ada, aplikasi tetap hidup dan menampilkan
 panduan konfigurasi (halaman SetupNotice) — tidak crash.
 
-<!-- PS: Jangan pernah menaruh SUPABASE_SERVICE_ROLE_KEY di .env.local
-     Aplikasi ini tidak membutuhkannya (semua operasi lewat anon key + RLS). -->
+<!-- PS: Jangan pernah menaruh secret/service role key di .env.local
+     Aplikasi ini tidak membutuhkannya (semua operasi lewat publishable key + RLS). -->
 
 ## Struktur Folder
 
 ```
 supabase/
-└── migrations/          # SQL migration (jalankan di SQL Editor Supabase)
+└── migrations/          # SQL migration — jalankan BERURUTAN di SQL Editor:
+                         #   00001_core_schema.sql            (skema + RLS)
+                         #   00002_transaction_items_security.sql (integritas)
+                         #   00003_security_hardening.sql     (hardening)
 src/
 ├── middleware.ts        # Refresh session + protected routes
 ├── app/
@@ -94,6 +121,29 @@ src/
 - Yang di-expose ke browser hanya **anon key** (publik by design).
   Service role key tidak dipakai di aplikasi ini.
 - Semua input formulir divalidasi ulang di server actions.
+
+## OCR & Kredensial Google Cloud (Ringkas)
+
+Fitur foto nota (AI Receipt Scanner) berjalan dalam **Mock OCR / Mode
+Simulasi** selama pengembangan — data contoh yang jelas diberi label
+`SIMULASI`, tanpa biaya, tanpa akun Google. Ini adalah mode default dan
+tetap tersedia kapan pun.
+
+Aturan kredensial Google Cloud Vision (saat integrasi diaktifkan nanti):
+
+- **Kredensial hanya hidup di server** — variabel `GOOGLE_*`/`OCR_*`
+  tidak diawali `NEXT_PUBLIC_`, tidak pernah dikirim ke browser, dan
+  tidak pernah dicatat ke log (lihat `src/lib/server-log.ts`).
+- **JANGAN PERNAH mengunggah file JSON key service account ke GitHub**
+  (atau Git apa pun). Simpan isinya di `.env.local` (sudah di-ignore
+  `.gitignore`), atau taruh file key-nya **di luar** folder project.
+  Pola `*service-account*.json`, `*credentials*.json`, dan `secrets/`
+  sudah di-ignore sebagai pertahanan berlapis — tetapi jangan mengandalkan
+  itu; kredensial bocor = rotasi key segera.
+- **Billing Google Cloud belum diaktifkan** — pemanggilan Vision API
+  berbayar sengaja belum dijalankan. Aktivasi billing & pembuatan JSON
+  key adalah langkah terpisah yang dilakukan secara sadar, bukan bagian
+  dari pengembangan kode.
 
 ## Status Pengembangan (Roadmap)
 
