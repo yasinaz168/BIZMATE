@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Bot,
   CircleCheck,
@@ -17,7 +18,11 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { formatIDR } from "@/lib/format";
+import { newAiRequestId } from "@/lib/ai/save-idempotency";
 import type {
+  AiStatus,
+  AiStatusReason,
+  AiStatusView,
   AiTransaction,
   ChatMessage,
   PaymentMethod,
@@ -50,22 +55,79 @@ interface ChatApiResponseBody {
   conversationId?: string;
   aiMessageId?: string;
   simulationMode?: boolean;
+  /** Tri-state AI (AI-R2) — hasil NYATA dari provider per respons */
+  aiStatus?: AiStatus;
+  /** alasan aman kondisi non-connected (mis. "timeout", "http_4xx") */
+  aiStatusReason?: AiStatusReason;
   error?: string;
 }
+
+/**
+ * Meta tampilan status AI (AI-R2) — label & gaya badge/banner.
+ * Status membedakan: terhubung, simulasi (tanpa key), provider gagal.
+ */
+const AI_STATUS_META: Record<
+  AiStatusView,
+  { label: string; badgeClass: string; bannerClass: string }
+> = {
+  connected: {
+    label: "AI Terhubung",
+    badgeClass: "bg-primary/15 text-primary-ink",
+    bannerClass: "border-primary/25 bg-primary/5 text-primary-ink",
+  },
+  simulation: {
+    label: "Mode Simulasi",
+    badgeClass: "bg-amber-100 text-amber-900",
+    bannerClass: "border-amber-300/60 bg-amber-50 text-amber-900",
+  },
+  provider_error: {
+    label: "AI Sedang Bermasalah",
+    badgeClass: "bg-expense/10 text-expense",
+    bannerClass: "border-expense/25 bg-expense/5 text-expense",
+  },
+  unknown: {
+    label: "Status AI belum diverifikasi",
+    badgeClass: "bg-muted text-muted-foreground",
+    bannerClass: "border-line bg-muted/40 text-muted-foreground",
+  },
+};
+
+/** Keterangan alasan aman untuk provider_error (tanpa detail sensitif). */
+const AI_REASON_TEXT: Record<AiStatusReason, string> = {
+  no_key: "",
+  timeout: "Koneksi ke provider melebihi batas waktu.",
+  network_error: "Koneksi ke provider terputus.",
+  http_4xx: "Provider menolak permintaan.",
+  http_5xx: "Provider sedang mengalami gangguan.",
+  parse_error: "Respons provider tidak dapat dibaca.",
+};
 
 type SaveState =
   | { kind: "idle" }
   | { kind: "saving" }
-  | { kind: "saved"; title: string; amount: number };
+  | {
+      kind: "saved";
+      title: string;
+      amount: number;
+      /** true = replay idempotency (sudah pernah diproses, tidak dibuat ulang) */
+      replay: boolean;
+      /** id transaksi dari server (LAMA untuk replay) */
+      transactionId: string;
+    };
 
 export function AssistantChat({
   initialMessages,
   conversationId: initialConversationId,
-  simulationMode,
+  initialAiStatus,
 }: {
   initialMessages: ChatMessage[];
   conversationId: string | null;
-  simulationMode: boolean;
+  /**
+   * Status AI awal halaman (AI-R2): "simulation" bila key memang tidak
+   * ada; "unknown" bila belum ada respons yang membuktikan — JANGAN
+   * pernah "connected" hanya karena API key tersedia.
+   */
+  initialAiStatus: AiStatusView;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
@@ -78,12 +140,22 @@ export function AssistantChat({
   );
 
   // ---------- preview transaksi (edit sebelum simpan) ----------
+  // requestId = kunci idempotency (R2.4): dibuat CLIENT per draf,
+  // TETAP sama selama draf yang sama diedit & dicoba simpan ulang
+  // (updatePreview menyebarkan ...p sehingga requestId tidak berubah).
   const [preview, setPreview] = useState<{
     aiMessageId: string;
     transaction: AiTransaction;
     serverErrors: string[];
+    requestId: string;
   } | null>(null);
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
+
+  // Status AI tri-state (AI-R2) — diperbarui dari hasil NYATA tiap respons
+  const [aiStatus, setAiStatus] = useState<AiStatusView>(initialAiStatus);
+  const [aiStatusReason, setAiStatusReason] = useState<AiStatusReason | undefined>(
+    undefined
+  );
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -138,6 +210,12 @@ export function AssistantChat({
 
       if (data.conversationId) setConversationId(data.conversationId);
 
+      // Status AI per respons (AI-R2) — hasil NYATA dari runAssistant
+      const responseStatus: AiStatus =
+        data.aiStatus ?? (data.simulationMode ? "simulation" : "connected");
+      setAiStatus(responseStatus);
+      setAiStatusReason(data.aiStatusReason);
+
       setMessages((prev) => [
         ...prev.map((m) => (m.id === tempId ? { ...m, content: text } : m)),
         {
@@ -145,6 +223,7 @@ export function AssistantChat({
           role: "assistant",
           content: data.reply ?? "",
           transaction: data.transaction ?? null,
+          aiStatus: responseStatus,
         },
       ]);
 
@@ -153,6 +232,7 @@ export function AssistantChat({
           aiMessageId: data.aiMessageId ?? "",
           transaction: { ...data.transaction },
           serverErrors: [],
+          requestId: newAiRequestId(), // draf baru = kunci idempotency baru
         });
       } else {
         setPreview(null);
@@ -176,13 +256,20 @@ export function AssistantChat({
       const response = await fetch("/api/assistant/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transaction: preview.transaction }),
+        // request_id = kunci idempotency draf ini (stabil selama draf
+        // yang sama diedit/dicoba ulang — tidak dibuat per klik Simpan)
+        body: JSON.stringify({
+          transaction: preview.transaction,
+          request_id: preview.requestId,
+        }),
       });
       const data = (await response.json()) as {
         ok?: boolean;
         summary?: string;
         error?: string;
         errors?: string[];
+        transactionId?: string;
+        replay?: boolean;
       };
 
       if (!response.ok || data.error) {
@@ -195,8 +282,14 @@ export function AssistantChat({
 
       const tx = preview.transaction;
       const total = Math.round(tx.quantity * tx.unit_price);
-      setSaveState({ kind: "saved", title: tx.title, amount: total });
-      setPreview(null);
+      setSaveState({
+        kind: "saved",
+        title: tx.title,
+        amount: total,
+        replay: Boolean(data.replay),
+        transactionId: data.transactionId ?? "",
+      });
+      setPreview(null); // draf SELESAI — tidak bisa terkirim ulang
       router.refresh(); // dashboard & header ikut memakai data terbaru
     } catch {
       setError("Gagal menyimpan. Periksa internetmu, lalu coba lagi.");
@@ -212,7 +305,12 @@ export function AssistantChat({
 
   function editPreviewFromChat(transaction: AiTransaction, aiMessageId: string) {
     setSaveState({ kind: "idle" });
-    setPreview({ aiMessageId, transaction: { ...transaction }, serverErrors: [] });
+    setPreview({
+      aiMessageId,
+      transaction: { ...transaction },
+      serverErrors: [],
+      requestId: newAiRequestId(), // draf baru dari riwayat = kunci baru
+    });
   }
 
   const editabled =
@@ -220,32 +318,49 @@ export function AssistantChat({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Banner mode — transparan tentang kemampuan saat ini */}
+      {/* Banner status AI (AI-R2) — transparan: terhubung / simulasi /
+          provider bermasalah / belum diverifikasi (jangan klaim terhubung
+          hanya karena API key tersedia) */}
       <div
         role="status"
         className={
           "flex items-start gap-3 rounded-xl border px-4 py-3 text-sm leading-relaxed " +
-          (simulationMode
-            ? "border-amber-300/60 bg-amber-50 text-amber-900"
-            : "border-primary/25 bg-primary/5 text-primary-ink")
+          AI_STATUS_META[aiStatus].bannerClass
         }
       >
-        {simulationMode ? (
-          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-        ) : (
+        {aiStatus === "connected" || aiStatus === "unknown" ? (
           <Bot className="mt-0.5 h-4 w-4 shrink-0" />
+        ) : (
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
         )}
         <span>
-          {simulationMode ? (
+          <strong>{AI_STATUS_META[aiStatus].label}.</strong>{" "}
+          {aiStatus === "connected" && (
             <>
-              <strong>Mode Simulasi aktif.</strong> AI sungguhan belum terhubung (LLM_API_KEY
-              belum diisi) — asisten memakai parser berbasis aturan Bahasa Indonesia. Hasil tetap
-              dievaluasi &amp; wajib kamu konfirmasi sebelum disimpan.
+              Respons diperoleh dari AI provider. Asisten hanya menyusun draf
+              transaksi — kamu tetap mengatur isi form dan menekan Simpan.
             </>
-          ) : (
+          )}
+          {aiStatus === "simulation" && (
             <>
-              <strong>AI terhubung.</strong> Asisten hanya menyusun draf transaksi — kamu tetap
-              mengatur isi form dan menekan Simpan.
+              Aplikasi memakai parser simulasi karena konfigurasi AI belum
+              tersedia (LLM_API_KEY belum diisi) — berbasis aturan Bahasa
+              Indonesia. Hasil tetap dievaluasi &amp; wajib kamu konfirmasi
+              sebelum disimpan.
+            </>
+          )}
+          {aiStatus === "provider_error" && (
+            <>
+              Provider gagal memberikan respons, jadi aplikasi memakai fallback
+              simulasi untuk sementara.{" "}
+              {aiStatusReason ? AI_REASON_TEXT[aiStatusReason] : ""} Coba lagi
+              beberapa saat lagi.
+            </>
+          )}
+          {aiStatus === "unknown" && (
+            <>
+              Status akan terlihat setelah pesan pertama terkirim — saat ini
+              belum ada respons provider yang bisa dipastikan.
             </>
           )}
         </span>
@@ -281,7 +396,7 @@ export function AssistantChat({
             <AssistantBubble
               key={m.id}
               message={m}
-              simulationMode={simulationMode}
+              aiStatus={m.aiStatus ?? aiStatus}
               onEdit={(tx) => editPreviewFromChat(tx, m.id)}
             />
           )
@@ -310,12 +425,33 @@ export function AssistantChat({
         {saveState.kind === "saved" && (
           <div
             role="status"
+            aria-live="polite"
             className="flex items-start gap-2.5 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-sm text-primary-ink"
           >
             <CircleCheck className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
-              ✔ Tersimpan: <strong>{saveState.title}</strong> · {formatIDR(saveState.amount)}.
-              Dashboard sudah diperbarui.
+              {saveState.replay ? (
+                <>
+                  Transaksi ini sudah pernah diproses sebelumnya dan tidak
+                  dibuat ulang.
+                </>
+              ) : (
+                <>
+                  ✔ Tersimpan: <strong>{saveState.title}</strong> ·{" "}
+                  {formatIDR(saveState.amount)}. Dashboard sudah diperbarui.
+                </>
+              )}
+              {saveState.transactionId && (
+                <>
+                  {" "}
+                  <Link
+                    href={`/transaksi/${encodeURIComponent(saveState.transactionId)}`}
+                    className="font-semibold underline underline-offset-4"
+                  >
+                    Lihat Detail Transaksi
+                  </Link>
+                </>
+              )}
             </span>
           </div>
         )}
@@ -400,11 +536,12 @@ export function AssistantChat({
 
 function AssistantBubble({
   message,
-  simulationMode,
+  aiStatus,
   onEdit,
 }: {
   message: ChatMessage;
-  simulationMode: boolean;
+  /** status AI milik respons pesan ini (bukan status global) */
+  aiStatus: AiStatusView;
   onEdit: (tx: AiTransaction) => void;
 }) {
   const hasTx = Boolean(message.transaction);
@@ -419,10 +556,10 @@ function AssistantBubble({
             <span
               className={
                 "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide " +
-                (simulationMode ? "bg-amber-100 text-amber-900" : "bg-primary/15 text-primary-ink")
+                AI_STATUS_META[aiStatus].badgeClass
               }
             >
-              {simulationMode ? "Mode Simulasi" : "AI"}
+              {AI_STATUS_META[aiStatus].label}
             </span>
             {hasTx && (
               <span className="rounded-full bg-foreground/5 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">

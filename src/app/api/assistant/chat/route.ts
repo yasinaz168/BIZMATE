@@ -3,8 +3,14 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { runAssistant } from "@/lib/ai/llm";
 import { validateTransaction } from "@/lib/ai/validate";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { logAppError, logDbError } from "@/lib/server-log";
-import type { ChatMessage, ValidatedTransaction } from "@/lib/ai/types";
+import type {
+  AiStatus,
+  AiStatusReason,
+  ChatMessage,
+  ValidatedTransaction,
+} from "@/lib/ai/types";
 
 /**
  * POST /api/assistant/chat
@@ -46,6 +52,22 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Pesan wajib diisi (maksimal 1000 karakter)." },
       { status: 400 }
+    );
+  }
+
+  // ---------- rate limiting (AI-R3.2) ----------
+  // 10 permintaan/menit + 200 permintaan/hari per user. Ditempatkan
+  // SEBELUM lookup bisnis & pemanggilan LLM agar spam tidak memakan
+  // query DB maupun token provider. Keputusan dari limit() atomik
+  // Upstash (lihat src/lib/rate-limit.ts); fail-open saat limiter error.
+  const rate = await checkRateLimit("chat", user.id);
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: "Terlalu banyak permintaan. Coba lagi dalam beberapa saat." },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rate.retryAfterSeconds) },
+      }
     );
   }
 
@@ -93,17 +115,25 @@ export async function POST(request: Request) {
     isNewConversation = true;
   }
 
-  // ---------- riwayat ----------
+  // ---------- riwayat (AI-R1: 14 pesan TERBARU, urutan kronologis) ----------
+  // Query memakai order DESC + limit 14 sehingga yang terambil adalah
+  // pesan-pesan TERBARU (bukan 14 terawal); hasil dibalik di memori agar
+  // runAssistant menerima urutan lama → baru seperti sebelumnya.
+  // slice(-14) = pembatas ganda yang mempertahankan batas 14 pesan apa pun
+  // perilaku driver (limit sudah ditegakkan server oleh PostgREST).
   const { data: historyRows } = await supabase
     .from("ai_messages")
     .select("role, content, structured_data")
     .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(14);
 
-  const history: Array<{ role: "user" | "assistant"; content: string }> = (
-    historyRows ?? []
-  ).map((row) => {
+  const history: Array<{ role: "user" | "assistant"; content: string }> = [
+    ...(historyRows ?? []),
+  ]
+    .reverse()
+    .slice(-14)
+    .map((row) => {
     const data = row.structured_data as { reply?: string } | null;
     const content =
       row.role === "assistant" && data?.reply
@@ -138,12 +168,21 @@ Jawaban asisten sebelumnya: ${row.content}`
   // yang mustahil), responsnya JSON error yang aman — bukan exception
   // polos yang berubah menjadi HTTP 500 tanpa pesan.
   let simulationMode = true;
+  let aiStatus: AiStatus = "simulation";
+  let aiStatusReason: AiStatusReason | undefined;
   let safeTransaction: ValidatedTransaction | null = null;
   let replyText = "";
 
   try {
     const result = await runAssistant(history, business.name);
     simulationMode = result.simulationMode;
+    // AI-R2: status TRI-STATE berasal dari hasil runAssistant
+    // (bukan sekadar keberadaan API key) — simulation vs provider_error
+    // dibedakan eksplisit. Fallback defensif untuk kontrak lama.
+    aiStatus =
+      result.status ??
+      (result.simulationMode ? "simulation" : "connected");
+    aiStatusReason = result.reason;
 
     // Validasi hasil (LLM TIDAK dipercaya mentah) — untuk ditandai di reply
     const validated = result.parsed.transaction
@@ -199,6 +238,7 @@ Jawaban asisten sebelumnya: ${row.content}`
     role: "assistant",
     content: replyText,
     transaction: safeTransaction,
+    aiStatus,
   };
 
   return NextResponse.json({
@@ -208,6 +248,9 @@ Jawaban asisten sebelumnya: ${row.content}`
     aiMessageId: assistantMsg.id,
     conversationId,
     isNewConversation,
+    // kompatibilitas lama + tri-state AI-R2
     simulationMode,
+    aiStatus,
+    ...(aiStatusReason ? { aiStatusReason } : {}),
   });
 }

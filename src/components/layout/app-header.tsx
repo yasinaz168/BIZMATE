@@ -3,7 +3,18 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, LayoutDashboard, ReceiptText, Bot, Package, BarChart3, Settings, LogOut } from "lucide-react";
+import {
+  Menu,
+  X,
+  LayoutDashboard,
+  ReceiptText,
+  ShoppingCart,
+  Bot,
+  Package,
+  BarChart3,
+  Settings,
+  LogOut,
+} from "lucide-react";
 import { Logo } from "@/components/logo";
 import { signOutAction } from "@/app/(auth)/actions";
 import { cn } from "@/lib/utils";
@@ -26,6 +37,7 @@ const PAGE_TITLES: Array<{ match: (p: string) => boolean; title: string }> = [
 const DRAWER_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Transaksi", href: "/transaksi", icon: ReceiptText },
+  { label: "Kasir", href: "/kasir", icon: ShoppingCart },
   { label: "AI Assistant", href: "/assistant", icon: Bot },
   { label: "Produk", href: "/produk", icon: Package },
   { label: "Laporan", href: "/laporan", icon: BarChart3 },

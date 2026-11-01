@@ -19,7 +19,7 @@ import { RecentTransactions } from "@/components/dashboard/recent-transactions";
 import { AiInsightCard } from "@/components/dashboard/ai-insight-card";
 import { formatIDR } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
-import { getDashboardData } from "@/lib/dashboard-data";
+import { getDashboardData, fetchMonthRows } from "@/lib/dashboard-data";
 import { buildAutoInsight } from "@/lib/insight";
 
 export const metadata = { title: "Dashboard" };
@@ -204,21 +204,6 @@ function dayLabelNow(): string {
     month: "long",
     year: "numeric",
   }).format(now);
-}
-
-/** Baris mentah bulan berjalan untuk engine insight */
-async function fetchMonthRows(supabase: Awaited<ReturnType<typeof createClient>>, businessId: string) {
-  const monthISO = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Jakarta",
-    year: "numeric",
-    month: "2-digit",
-  }).format(new Date());
-  const { data } = await supabase
-    .from("transactions")
-    .select("type, title, quantity, total, transacted_at")
-    .eq("business_id", businessId)
-    .gte("transacted_at", new Date(`${monthISO}-01T00:00:00+07:00`).toISOString());
-  return data ?? [];
 }
 
 /** Kartu ajakan transaksi pertama (hanya tampil saat benar-benar kosong) */

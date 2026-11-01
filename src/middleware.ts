@@ -16,6 +16,7 @@ import { getSupabaseConfig } from "@/lib/supabase/config";
 const PROTECTED_PREFIXES = [
   "/dashboard",
   "/transaksi",
+  "/kasir",
   "/assistant",
   "/produk",
   "/laporan",

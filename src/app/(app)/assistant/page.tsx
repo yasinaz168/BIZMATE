@@ -12,7 +12,9 @@ export const metadata = { title: "AI Assistant" };
  * Halaman = server component: memuat percakapan terakhir + 30 pesan
  * terakhir dari database (RLS aktif), lalu interaksi dilanjutkan oleh
  * client component via API routes.
- * `simulationMode` jujur: true = LLM API key belum diisi → Mode Simulasi
+ * `initialAiStatus` jujur (AI-R2): "simulation" = LLM_API_KEY belum
+ * diisi; "unknown" = key ada tetapi belum ada respons yang membuktikan —
+ * status "connected" hanya dari hasil provider yang benar-benar berhasil.
  * rule-based BERLABEL, bukan klaim AI sungguhan.
  */
 export default async function AssistantPage() {
@@ -53,12 +55,23 @@ export default async function AssistantPage() {
     initialMessages = (messages ?? [])
       .reverse()
       .map((m) => {
-        const data = m.structured_data as { transaction?: AiTransaction } | null;
+        const data = m.structured_data as {
+          transaction?: AiTransaction;
+          simulation_mode?: boolean;
+        } | null;
         return {
           id: m.id,
           role: m.role as "user" | "assistant",
           content: m.content,
           transaction: data?.transaction ?? null,
+          // Status per pesan dari riwayat DB (flag lama hanya simulation_mode —
+          // tidak membedakan provider_error; dikembalikan apa adanya).
+          aiStatus:
+            data?.simulation_mode === undefined
+              ? undefined
+              : data.simulation_mode
+                ? "simulation"
+                : "connected",
         };
       });
   }
@@ -67,7 +80,9 @@ export default async function AssistantPage() {
     <AssistantChat
       initialMessages={initialMessages}
       conversationId={conversation?.id ?? null}
-      simulationMode={!isLLMConfigured()}
+      // AI-R2: status awal JUJUR — key ada ≠ terhubung. Status "connected"
+      // hanya ditetapkan setelah respons provider benar-benar berhasil.
+      initialAiStatus={isLLMConfigured() ? "unknown" : "simulation"}
     />
   );
 }

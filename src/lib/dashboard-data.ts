@@ -21,6 +21,8 @@ interface TransactionRow {
   quantity: number | null;
   total: number;
   transacted_at: string;
+  /** status baris (kolom transactions) — untuk guard agregasi R1 */
+  status?: string;
 }
 
 export interface DashboardData {
@@ -57,8 +59,13 @@ export async function getDashboardData(
 
   const { data, error } = await supabase
     .from("transactions")
-    .select("id, type, title, quantity, total, transacted_at, payment_method")
+    .select(
+      "id, type, title, quantity, total, transacted_at, payment_method, status"
+    )
     .eq("business_id", businessId)
+    // R1 (keputusan produk): HANYA transaksi 'completed' yang masuk
+    // agregasi keuangan — draft & void tidak dihitung di mana pun.
+    .eq("status", "completed")
     .gte("transacted_at", isoToStartOfDayUTC(monthStartISO))
     .order("transacted_at", { ascending: false });
 
@@ -70,6 +77,13 @@ export async function getDashboardData(
     TransactionRow & { id: string; payment_method: string }
   >;
 
+  // Guard agregasi R1 (lapis kedua di atas filter query): baris yang
+  // statusnya eksplisit bukan completed TIDAK dihitung. Baris tanpa
+  // status (data lama/mock) tetap dihitung.
+  const countedRows = rows.filter(
+    (row) => row.status !== "draft" && row.status !== "void"
+  );
+
   // ---------- Agregasi ----------
   let todaySales = 0;
   let monthSales = 0;
@@ -79,7 +93,7 @@ export async function getDashboardData(
   const productQty = new Map<string, number>();
   const productRevenue = new Map<string, number>();
 
-  for (const row of rows) {
+  for (const row of countedRows) {
     const dayISO = toJakartaDayISO(row.transacted_at);
     if (row.type === "income") {
       monthSales += Number(row.total);
@@ -111,7 +125,7 @@ export async function getDashboardData(
     .slice(0, 5)
     .map((p, i) => ({ ...p, rank: i + 1 }));
 
-  const recentTransactions = rows
+  const recentTransactions = countedRows
     .slice(0, 6)
     .map((r) => ({
       id: r.id,
@@ -130,12 +144,45 @@ export async function getDashboardData(
   return {
     todaySales,
     monthSales,
-    monthTransactions: rows.length,
+    monthTransactions: countedRows.length,
     monthExpenses,
     monthProfit: monthSales - monthExpenses,
     chart,
     topProducts,
     recentTransactions,
-    hasNoTransactionAtAll: rows.length === 0,
+    hasNoTransactionAtAll: countedRows.length === 0,
   };
+}
+
+/**
+ * Baris bulan berjalan untuk engine insight (di-dashboard) —
+ * dipindah ke lib agar dapat diuji. R1: HANYA transaksi 'completed'.
+ */
+export interface MonthRow {
+  type: "income" | "expense";
+  title: string;
+  quantity: number | null;
+  total: number;
+  transacted_at: string;
+  /** status kolom (ikut di-select) — memudahkan audit */
+  status?: string;
+}
+
+export async function fetchMonthRows(
+  supabase: SupabaseClient,
+  businessId: string
+): Promise<MonthRow[]> {
+  const monthISO = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+  }).format(new Date());
+  const { data } = await supabase
+    .from("transactions")
+    .select("type, title, quantity, total, transacted_at, status")
+    .eq("business_id", businessId)
+    // R1: draft & void tidak masuk insight (keputusan produk)
+    .eq("status", "completed")
+    .gte("transacted_at", new Date(`${monthISO}-01T00:00:00+07:00`).toISOString());
+  return (data ?? []) as MonthRow[];
 }

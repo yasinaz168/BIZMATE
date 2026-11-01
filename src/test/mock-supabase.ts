@@ -16,6 +16,21 @@ export interface QueryResult {
 export interface RecordedInsert {
   table: string;
   op: "insert";
+  /** Payload insert — untuk verifikasi (mis. business_id dari server) */
+  payload?: Record<string, unknown>;
+}
+
+/** Operasi UPDATE yang tercatat — untuk memverifikasi alur edit/status */
+export interface RecordedUpdate {
+  table: string;
+  op: "update";
+  payload?: Record<string, unknown>;
+}
+
+/** Pemanggilan RPC (mis. create_sale) — untuk verifikasi kontrak POS */
+export interface RecordedRpc {
+  name: string;
+  args?: Record<string, unknown>;
 }
 
 type MockQuery = {
@@ -23,7 +38,8 @@ type MockQuery = {
   eq: () => MockQuery;
   order: () => MockQuery;
   limit: () => MockQuery;
-  insert: () => MockQuery;
+  insert: (payload?: Record<string, unknown>) => MockQuery;
+  update: (payload?: Record<string, unknown>) => MockQuery;
   single: () => Promise<QueryResult>;
   maybeSingle: () => Promise<QueryResult>;
   then: <T1 = QueryResult, T2 = never>(
@@ -37,6 +53,14 @@ export interface MockSupabase {
   from: (table: string) => MockQuery;
   /** Semua operasi INSERT yang terjadi — untuk memverifikasi alur simpan */
   inserts: RecordedInsert[];
+  /** Semua operasi UPDATE yang terjadi — untuk memverifikasi alur ubah */
+  updates: RecordedUpdate[];
+  /** Semua pemanggilan RPC yang tercatat — untuk memverifikasi kontrak POS */
+  rpcs: RecordedRpc[];
+  /** Hasil yang dijadwalkan untuk pemanggilan RPC berikutnya (diatur test) */
+  rpcResult?: QueryResult | null;
+  /** Pemanggilan RPC — selalu mengembalikan nilai dari `rpcResult` */
+  rpc: (name: string, args?: Record<string, unknown>) => Promise<QueryResult>;
 }
 
 /**
@@ -46,6 +70,8 @@ export interface MockSupabase {
  */
 export function makeMockSupabase(results: QueryResult[]): MockSupabase {
   const inserts: RecordedInsert[] = [];
+  const updates: RecordedUpdate[] = [];
+  const rpcs: RecordedRpc[] = [];
   let idx = 0;
   const next = (): QueryResult => results[idx++] ?? { data: null, error: null };
 
@@ -55,8 +81,12 @@ export function makeMockSupabase(results: QueryResult[]): MockSupabase {
       eq: () => chain,
       order: () => chain,
       limit: () => chain,
-      insert: () => {
-        inserts.push({ table, op: "insert" });
+      insert: (payload) => {
+        inserts.push({ table, op: "insert", payload });
+        return chain;
+      },
+      update: (payload) => {
+        updates.push({ table, op: "update", payload });
         return chain;
       },
       single: () => Promise.resolve(next()),
@@ -67,9 +97,17 @@ export function makeMockSupabase(results: QueryResult[]): MockSupabase {
     return chain;
   };
 
-  return {
+  const mock: MockSupabase = {
     auth: { getUser: async () => ({ data: { user: { id: "user-1" } } }) },
     from,
     inserts,
+    updates,
+    rpcs,
+    rpcResult: null,
+    rpc: (name, args) => {
+      rpcs.push({ name, args });
+      return Promise.resolve(mock.rpcResult ?? { data: null, error: null });
+    },
   };
+  return mock;
 }

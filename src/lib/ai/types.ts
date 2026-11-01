@@ -37,7 +37,37 @@ export interface ChatMessage {
   content: string;
   /** Transaksi yang tersimpan pada pesan assistant (riwayat) */
   transaction?: AiTransaction | null;
+  /**
+   * Status AI saat pesan ini dihasilkan (AI-R2) — dipakai badge per pesan.
+   * Opsional untuk pesan lama dari riwayat DB (fallback ke status global).
+   */
+  aiStatus?: AiStatus;
 }
+
+/**
+ * Status AI tri-state (AI-R2) — hasil NYATA dari runAssistant,
+ * bukan sekadar keberadaan API key:
+ * - "connected"      : provider LLM berhasil memberikan respons valid
+ * - "simulation"     : tanpa LLM_API_KEY → parser simulasi (didesain)
+ * - "provider_error" : provider dipanggil tetapi gagal → fallback simulasi
+ */
+export type AiStatus = "connected" | "simulation" | "provider_error";
+
+/**
+ * Tampilan status AI di UI: tambahan "unknown" untuk kondisi awal
+ * halaman sebelum respons pertama diketahui (jangan mengklaim terhubung
+ * hanya karena API key tersedia).
+ */
+export type AiStatusView = AiStatus | "unknown";
+
+/** Alasan aman kondisi non-connected (tanpa detail sensitif). */
+export type AiStatusReason =
+  | "no_key"
+  | "timeout"
+  | "network_error"
+  | "http_4xx"
+  | "http_5xx"
+  | "parse_error";
 
 /** Validator: hasil normalisasi */
 export interface ValidatedTransaction extends AiTransaction {
