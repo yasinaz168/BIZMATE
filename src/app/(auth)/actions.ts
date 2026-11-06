@@ -1,9 +1,19 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { translateAuthError } from "@/lib/auth-errors";
 import { safeInternalPath } from "@/lib/utils";
+
+function getOrigin(): string {
+  const h = headers();
+  const origin = h.get("origin");
+  if (origin) return origin;
+  const host = h.get("host");
+  if (host) return `https://${host}`;
+  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+}
 
 /**
  * Server actions untuk autentikasi.
@@ -48,18 +58,20 @@ export async function signUpAction(
   }
 
   const supabase = await createClient();
+  const origin = getOrigin();
 
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: { full_name: fullName },
-      // Konfirmasi email akan mengembalikan sesi lewat /auth/callback
-      emailRedirectTo: `/auth/callback?next=/onboarding`,
+      // Supabase memerlukan redirect URL absolut yang terdaftar di URL Configuration
+      emailRedirectTo: `${origin}/auth/callback?next=/onboarding`,
     },
   });
 
   if (error) {
+    console.error("[signUpAction] Supabase error:", error.message, error.status);
     return { error: translateAuthError(error.message) };
   }
 
