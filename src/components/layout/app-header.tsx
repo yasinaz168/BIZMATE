@@ -26,6 +26,8 @@ import { cn } from "@/lib/utils";
 
 const PAGE_TITLES: Array<{ match: (p: string) => boolean; title: string }> = [
   { match: (p) => p === "/dashboard", title: "Dashboard" },
+  // route Kasir (P5.3) — dulu jatuh ke fallback "Dashboard"
+  { match: (p) => p === "/kasir" || p.startsWith("/kasir/"), title: "Kasir" },
   { match: (p) => p.startsWith("/transaksi/baru"), title: "Tambah Transaksi" },
   { match: (p) => p.startsWith("/transaksi"), title: "Transaksi" },
   { match: (p) => p.startsWith("/assistant"), title: "AI Assistant" },

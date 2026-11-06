@@ -1,7 +1,7 @@
 import { getLLMConfig, isLLMConfigured } from "./config";
 import { logLlmEvent } from "@/lib/server-log";
 import type { AiStatus, AiStatusReason, ChatTransactionResponse } from "./types";
-import { parseSimulation } from "./mock-parser";
+import { parseSimulationWithHistory } from "./mock-parser";
 import { jakartaDaysAgoN, jakartaTodayISO } from "@/lib/time";
 
 /**
@@ -22,17 +22,38 @@ Tugas: mengubah kalimat Bahasa Indonesia sehari-hari menjadi data transaksi ters
 ATURAN WAJIB (pelanggaran = kesalahan fatal):
 1. Tidak pernah MENGARANG angka. Harga, jumlah, tanggal, dan metode bayar hanya boleh diisi jika disebutkan (atau jelas dari konteks percakapan sebelumnya).
 2. Data kurang → AJUKAN PERTANYAAN BALIK yang pendek dan jelas. Jangan menebak.
+2b. Jawaban klarifikasi singkat ("pemasukan", "pengeluaran", "total Rp…", "50rb")
+    harus DIKAITKAN dengan konteks percakapan sebelumnya — jangan memperlakukannya
+    sebagai pesan berdiri sendiri; pertahankan produk/jumlah yang sudah disebut
+    di pesan sebelumnya.
 3. Tanggal: hari ini = ${todayISO}, kemarin = ${yesterdayISO} (zona WIB/Asia-Jakarta). Jika pengguna bilang "kemarin" pakai tanggal itu; tanpa keterangan → null.
 4. Metode bayar salah satu: cash, transfer, qris, ewallet. Tidak disebut → null.
-5. "total Rp X" tanpa jumlah → quantity 1, unit_price = X.
-6. Catat sebagai income (pemasukan/penjualan) atau expense (pengeluaran/beli/bayar).
-7. jawaban HANYA satu objek JSON valid tanpa teks lain, tanpa markdown:
+5. Nominal: "30rb"/"30 ribu"/"30k" = 30000; "2juta"/"2 jt" = 2000000; "Rp75.000" = 75000; angka polos ≥4 digit (mis. 30000) juga nominal dengan konteks transaksi. Desimal koma (mis. 75,5) dibaca sebagai desimal.
+6. Satu nominal tanpa jumlah → quantity 1, unit_price = nominal; sebutkan di reply bahwa kuantitas diisi 1 oleh kamu dan bisa diubah pengguna.
+7. Jumlah + satu nominal TANPA "per/@/seharga"/"total" → JANGAN berasumsi: AJUKAN PERTANYAAN apakah nominal itu harga per satuan atau total keseluruhan (action_type "none").
+8. Penanda "per/@/seharga" beserta jumlah → quantity × unit_price; "total Rp X" → quantity 1, unit_price = X.
+9. Dua nominal berbeda tanpa konteks jelas → JANGAN digabung jadi satu item; AJUKAN PERTANYAAN untuk kejelasan.
+10. Catat sebagai income (pemasukan/penjualan) atau expense (pengeluaran/beli/bayar — kata "pengeluaran" juga menandai expense).
+11. jawaban HANYA satu objek JSON valid tanpa teks lain, tanpa markdown:
 
 {"reply":"...","action_type":"none|transaction_ready","transaction":null|{"type":"income|expense","title":"...","quantity":1,"unit_price":0,"payment_method":"cash|transfer|qris|ewallet|null","transacted_at":"YYYY-MM-DD|null","notes":""}}
 
 - "reply" = kalimat hangat untuk pengguna dalam Bahasa Indonesia (maksimal 3 kalimat).
 - action_type "transaction_ready" hanya jika transaksi lengkap (type, title, quantity, unit_price).
-- judul itu pendek: nama item/jasa, bukan kalimat utuh.`;
+- Untuk "title": buat RINGKASAN transaksi pendek, natural, dan profesional dengan pola
+  "[Penjualan|Pembelian|Pembayaran|Pengeluaran] + objek/keperluan". Aturan judul:
+  1. Ambil inti aktivitas & objek yang disebut pengguna; hapus kata ganti ("aku/saya"),
+     kata penghubung menggantung ("dengan/untuk/yang"), dan angka nominal.
+  2. JANGAN menyalin kalimat mentah pengguna; JANGAN membuat prefiks ganda
+     (contoh salah: "Penjualan penjualan es teh").
+  3. JANGAN mengarang objek, nominal, jumlah, atau metode yang tidak disebut pengguna.
+  4. income = "Penjualan …"; expense: kewajiban/tagihan (token/listrik/air/pulsa/sewa/
+     gaji/iuran/pajak/cicilan) = "Pembayaran …", pembelian barang = "Pembelian …",
+     tidak jelas = "Pengeluaran …".
+  Contoh: "Aku tadi bayar tagihan token listrik toko 100rb pakai QRIS" → title
+  "Pembayaran token listrik toko"; "Beli bahan-bahan kue 90 ribu tunai" → title
+  "Pembelian bahan kue"; "Tadi jual es teh 50rb tunai" → title "Penjualan es teh";
+  "Jual loyang brownies 220 ribu" → title "Penjualan loyang brownies".`;
 
 interface LlmTurn {
   role: "user" | "assistant";
@@ -130,16 +151,13 @@ export async function runAssistant(
   history: LlmTurn[],
   businessName: string
 ): Promise<LlmResult> {
-  /** Pesan pengguna terakhir — dipakai parser simulasi (fallback). */
-  const lastUserContent = (): string =>
-    [...history].reverse().find((m) => m.role === "user")?.content ?? "";
-
-  /** Fallback ke parser simulasi — status membedakan tanpa-key vs provider gagal. */
+  /** Fallback ke parser simulasi — status membedakan tanpa-key vs provider gagal.
+   *  Hasil simulasi MEMAKAI konteks riwayat (R2.c) — bukan pesan terakhir saja. */
   const fallbackToSimulation = (
     status: "simulation" | "provider_error",
     reason: AiStatusReason
   ): LlmResult => ({
-    parsed: parseSimulation(lastUserContent()),
+    parsed: parseSimulationWithHistory(history),
     simulationMode: true,
     status,
     reason,

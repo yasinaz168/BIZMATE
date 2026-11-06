@@ -3,6 +3,7 @@ import {
   addToCart,
   changeQuantity,
   finalizeSale,
+  isStockDepleted,
   nextRequestId,
   removeFromCart,
   sumSale,
@@ -205,5 +206,25 @@ describe("finalizeSale — keranjang dikosongkan HANYA setelah sukses", () => {
     const sama = lines;
     expect(sama).toBe(lines); // referensi sama — tidak pernah diubah
     expect(lines[0].quantity).toBe(1);
+  });
+});
+
+describe("isStockDepleted — tombol Tambah stok habis (UI guard)", () => {
+  it("stock null (tidak dilacak) → TIDAK habis, boleh ditambahkan", () => {
+    expect(isStockDepleted(null)).toBe(false);
+  });
+
+  it("stock 0 → habis", () => {
+    expect(isStockDepleted(0)).toBe(true);
+  });
+
+  it("stock > 0 → tidak habis", () => {
+    expect(isStockDepleted(1)).toBe(false);
+    expect(isStockDepleted(5)).toBe(false);
+    expect(isStockDepleted(0.5)).toBe(false);
+  });
+
+  it("stock negatif (defensif) → dianggap habis; pengaman tetap RPC create_sale", () => {
+    expect(isStockDepleted(-1)).toBe(true);
   });
 });

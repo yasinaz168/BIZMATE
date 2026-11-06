@@ -45,6 +45,18 @@ export interface ChatMessage {
 }
 
 /**
+ * Ringkasan percakapan untuk daftar riwayat AI (P4.1).
+ * BENTUK SAMA dengan sel yang di-select dari `ai_conversations`.
+ */
+export interface ConversationSummary {
+  id: string;
+  /** judul otomatis dari pesan pertama — bisa null */
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * Status AI tri-state (AI-R2) — hasil NYATA dari runAssistant,
  * bukan sekadar keberadaan API key:
  * - "connected"      : provider LLM berhasil memberikan respons valid

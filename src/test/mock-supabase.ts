@@ -27,6 +27,13 @@ export interface RecordedUpdate {
   payload?: Record<string, unknown>;
 }
 
+/** Operasi DELETE yang tercatat (P4.2) — dipakai untuk memverifikasi
+ *  jalur hapus percakapan tidak menyentuh tabel transaksi. */
+export interface RecordedDelete {
+  table: string;
+  op: "delete";
+}
+
 /** Pemanggilan RPC (mis. create_sale) — untuk verifikasi kontrak POS */
 export interface RecordedRpc {
   name: string;
@@ -40,6 +47,7 @@ type MockQuery = {
   limit: () => MockQuery;
   insert: (payload?: Record<string, unknown>) => MockQuery;
   update: (payload?: Record<string, unknown>) => MockQuery;
+  delete: () => MockQuery;
   single: () => Promise<QueryResult>;
   maybeSingle: () => Promise<QueryResult>;
   then: <T1 = QueryResult, T2 = never>(
@@ -55,6 +63,8 @@ export interface MockSupabase {
   inserts: RecordedInsert[];
   /** Semua operasi UPDATE yang terjadi — untuk memverifikasi alur ubah */
   updates: RecordedUpdate[];
+  /** Semua operasi DELETE yang tercatat (P4.2 hapus percakapan) */
+  deletes: RecordedDelete[];
   /** Semua pemanggilan RPC yang tercatat — untuk memverifikasi kontrak POS */
   rpcs: RecordedRpc[];
   /** Hasil yang dijadwalkan untuk pemanggilan RPC berikutnya (diatur test) */
@@ -71,6 +81,7 @@ export interface MockSupabase {
 export function makeMockSupabase(results: QueryResult[]): MockSupabase {
   const inserts: RecordedInsert[] = [];
   const updates: RecordedUpdate[] = [];
+  const deletes: RecordedDelete[] = [];
   const rpcs: RecordedRpc[] = [];
   let idx = 0;
   const next = (): QueryResult => results[idx++] ?? { data: null, error: null };
@@ -89,6 +100,10 @@ export function makeMockSupabase(results: QueryResult[]): MockSupabase {
         updates.push({ table, op: "update", payload });
         return chain;
       },
+      delete: () => {
+        deletes.push({ table, op: "delete" });
+        return chain;
+      },
       single: () => Promise.resolve(next()),
       maybeSingle: () => Promise.resolve(next()),
       then: (onFulfilled, onRejected) =>
@@ -102,6 +117,7 @@ export function makeMockSupabase(results: QueryResult[]): MockSupabase {
     from,
     inserts,
     updates,
+    deletes,
     rpcs,
     rpcResult: null,
     rpc: (name, args) => {

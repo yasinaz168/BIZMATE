@@ -62,8 +62,8 @@ export function ComingSoon({ title, description, phase, icon: Icon, planned, ton
       {/* Rencana build */}
       <div className="grid grid-cols-1 gap-6 p-6 sm:p-8 md:grid-cols-5">
         <div className="md:col-span-3">
-          <h3 className={cn("text-sm font-semibold", tone === "dark" ? "text-white" : "")}>Yang dibangun di {phase.toLowerCase()}:</h3>
-          <ul className={cn("mt-3 space-y-2.5", tone === "dark" ? "text-white/70" : "text-muted-foreground")}>
+          <h3 className="text-sm font-semibold text-foreground">Yang dibangun di {phase.toLowerCase()}:</h3>
+          <ul className="mt-3 space-y-2.5 text-muted-foreground">
             {planned.map((item) => (
               <li key={item} className="flex items-start gap-2.5 text-sm leading-relaxed">
                 <CircleCheck className={cn("mt-0.5 h-4 w-4 shrink-0", tone === "dark" ? "text-primary" : "text-primary")} />
@@ -73,8 +73,8 @@ export function ComingSoon({ title, description, phase, icon: Icon, planned, ton
           </ul>
         </div>
         <div className="md:col-span-2">
-          <h3 className={cn("text-sm font-semibold", tone === "dark" ? "text-white" : "")}>Sementara itu:</h3>
-          <p className={cn("mt-3 text-sm leading-relaxed", tone === "dark" ? "text-white/70" : "text-muted-foreground")}>
+          <h3 className="text-sm font-semibold text-foreground">Sementara itu:</h3>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
             Dashboard sudah aktif dengan datamu yang asli dari database. Lihatlah arah desain aplikasi sebelum fitur ini selesai.
           </p>
           <Link

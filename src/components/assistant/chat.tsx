@@ -19,12 +19,18 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { formatIDR } from "@/lib/format";
 import { newAiRequestId } from "@/lib/ai/save-idempotency";
+import { ConversationList } from "./conversation-list";
+import {
+  deleteConversationAction,
+  type ConversationDeleteResult,
+} from "@/app/(app)/assistant/actions";
 import type {
   AiStatus,
   AiStatusReason,
   AiStatusView,
   AiTransaction,
   ChatMessage,
+  ConversationSummary,
   PaymentMethod,
   TransactionType,
 } from "@/lib/ai/types";
@@ -54,6 +60,7 @@ interface ChatApiResponseBody {
   transaction?: AiTransaction | null;
   conversationId?: string;
   aiMessageId?: string;
+  isNewConversation?: boolean;
   simulationMode?: boolean;
   /** Tri-state AI (AI-R2) — hasil NYATA dari provider per respons */
   aiStatus?: AiStatus;
@@ -119,6 +126,7 @@ export function AssistantChat({
   initialMessages,
   conversationId: initialConversationId,
   initialAiStatus,
+  conversationList: initialConversationList,
 }: {
   initialMessages: ChatMessage[];
   conversationId: string | null;
@@ -128,6 +136,8 @@ export function AssistantChat({
    * pernah "connected" hanya karena API key tersedia.
    */
   initialAiStatus: AiStatusView;
+  /** daftar riwayat percakapan milik bisnis (P4.1) */
+  conversationList: ConversationSummary[];
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
@@ -138,6 +148,16 @@ export function AssistantChat({
   const [conversationId, setConversationId] = useState<string | null>(
     initialConversationId
   );
+
+  // ---------- daftar percakapan (P4.1) ----------
+  // activeId = percakapan yang sedang terbuka; daftar salinan lokal agar
+  // percakapan baru langsung muncul tanpa reload halaman.
+  const [conversations, setConversations] = useState<ConversationSummary[]>(
+    initialConversationList
+  );
+  const [activeConversationId, setActiveConversationId] = useState<
+    string | null
+  >(initialConversationId);
 
   // ---------- preview transaksi (edit sebelum simpan) ----------
   // requestId = kunci idempotency (R2.4): dibuat CLIENT per draf,
@@ -208,7 +228,26 @@ export function AssistantChat({
         return;
       }
 
-      if (data.conversationId) setConversationId(data.conversationId);
+      // P4.1: id percakapan aktif menyusul respons; percakapan yang BARU
+      // dibuat langsung masuk daftar lokal (tanpa reload halaman).
+      const respondedConversationId = data.conversationId ?? null;
+      setConversationId(respondedConversationId);
+      setActiveConversationId(respondedConversationId);
+      if (
+        data.isNewConversation &&
+        respondedConversationId &&
+        !conversations.some((c) => c.id === respondedConversationId)
+      ) {
+        setConversations((prev) => [
+          {
+            id: respondedConversationId,
+            title: text.slice(0, 60),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          ...prev,
+        ]);
+      }
 
       // Status AI per respons (AI-R2) — hasil NYATA dari runAssistant
       const responseStatus: AiStatus =
@@ -313,11 +352,69 @@ export function AssistantChat({
     });
   }
 
+  /**
+   * P4.1: mulai percakapan baru — kosongkan konteks percakapan aktif
+   * (pesan, preview, kesalahan). Pesan berikutnya dikirim TANPA
+   * conversationId sehingga /api/assistant/chat membuat percakapan baru
+   * melalui mekanisme API yang sudah ada (tanpa endpoint tambahan).
+   */
+  function startNewConversation() {
+    setConversationId(null);
+    setActiveConversationId(null);
+    setMessages([]);
+    setPreview(null);
+    setSaveState({ kind: "idle" });
+    setError(null);
+    setInput("");
+  }
+
+  /**
+   * P4.2: hapus percakapan via server action (ownership & business_id
+   * diverifikasi server). Setelah sukses: keluarkan dari daftar lokal dan
+   * kalau yang AKTIF terhapus → pindah ke percakapan lain yang tersedia,
+   * atau tampilkan empty state (mulai percakapan baru).
+   * TRANSAKSI TIDAK disentuh sama sekali.
+   */
+  async function handleDeleteConversation(
+    id: string
+  ): Promise<ConversationDeleteResult> {
+    const result = await deleteConversationAction(id);
+    if (result.status === "error") {
+      return result; // pesan aman ditampilkan oleh daftar
+    }
+    // deleted | not_found → sama-sama dicocokkan keluar dari daftar lokal
+    const remaining = conversations.filter((c) => c.id !== id);
+    setConversations(remaining);
+    if (activeConversationId === id) {
+      const next = remaining[0];
+      if (next) {
+        router.push(
+          `/assistant?conversation=${encodeURIComponent(next.id)}`
+        );
+      } else {
+        startNewConversation(); // empty state
+      }
+    }
+    return result;
+  }
+
   const editabled =
     preview && preview.transaction.type && preview.transaction.title.length >= 1;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[250px,minmax(0,1fr)]">
+      <ConversationList
+        items={conversations}
+        activeId={activeConversationId}
+        onOpen={(id) => {
+          // buka percakapan lama → navigasi server; kepemilikan diverifikasi
+          // ulang oleh halaman (business_id dari server).
+          router.push(`/assistant?conversation=${encodeURIComponent(id)}`);
+        }}
+        onNew={startNewConversation}
+        onDelete={handleDeleteConversation}
+      />
+      <div className="flex min-w-0 flex-col gap-4">
       {/* Banner status AI (AI-R2) — transparan: terhubung / simulasi /
           provider bermasalah / belum diverifikasi (jangan klaim terhubung
           hanya karena API key tersedia) */}
@@ -526,6 +623,7 @@ export function AssistantChat({
         Asisten tidak akan menyimpan apa pun tanpa konfirmasimu. Angka di preview bisa kamu edit
         langsung.
       </p>
+      </div>
     </div>
   );
 }

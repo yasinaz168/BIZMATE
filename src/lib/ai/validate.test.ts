@@ -190,7 +190,11 @@ describe("validateTransaction — perilaku fitur lain TETAP", () => {
 
 describe("regresi audit: mock-parser → validator tidak crash", () => {
   it("pesan berisi tanggal mustahil diproses tanpa exception", () => {
-    const parsed = parseSimulation("jual 2 roti Rp20.000 2026-13-45");
+    // P3/R4: jumlah + nominal tanpa penanda kini BERTANYA (bukan draft),
+    // maka intent yang sama diuji melalui kata "total" yang tetap
+    // menghasilkan draf — inti test tetap: validator menolak tanggal
+    // mustahil tanpa exception.
+    const parsed = parseSimulation("jual total Rp20.000 2026-13-45");
     expect(parsed.transaction?.transacted_at).toBe("2026-13-45");
 
     let res: ReturnType<typeof validateTransaction> | null = null;
@@ -202,7 +206,7 @@ describe("regresi audit: mock-parser → validator tidak crash", () => {
   });
 
   it("pesan berisi 30 Februari ditolak, bukan digeser ke Maret", () => {
-    const parsed = parseSimulation("jual 2 roti Rp20.000 2026-02-30");
+    const parsed = parseSimulation("jual total Rp20.000 2026-02-30");
     expect(parsed.transaction?.transacted_at).toBe("2026-02-30");
 
     const res = validateTransaction(parsed.transaction);

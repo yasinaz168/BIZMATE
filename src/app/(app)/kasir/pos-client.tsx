@@ -25,6 +25,7 @@ import { formatIDR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   addToCart,
+  isStockDepleted,
   changeQuantity,
   finalizeSale,
   nextRequestId,
@@ -286,15 +287,26 @@ export function PosClient({ products }: { products: Product[] }) {
                       <p className="mt-1 text-xs text-muted-foreground">{item.category}</p>
                     )}
                   </div>
-                  <Button
-                    size="sm"
-                    disabled={pending}
-                    onClick={() => handleAddToCart(item)}
-                    aria-label={`Tambahkan ${item.name} ke keranjang`}
-                  >
-                    <Plus />
-                    Tambah
-                  </Button>
+                  {(() => {
+                    // Produk stok habis tetap terlihat, tetapi tidak bisa
+                    // dimasukkan ke keranjang (pengaman utama: RPC create_sale).
+                    const stockOut = isStockDepleted(item.stock);
+                    return (
+                      <Button
+                        size="sm"
+                        disabled={pending || stockOut}
+                        onClick={() => handleAddToCart(item)}
+                        aria-label={
+                          stockOut
+                            ? `${item.name} stok habis`
+                            : `Tambahkan ${item.name} ke keranjang`
+                        }
+                      >
+                        <Plus />
+                        {stockOut ? "Stok habis" : "Tambah"}
+                      </Button>
+                    );
+                  })()}
                 </div>
               ))}
             </div>

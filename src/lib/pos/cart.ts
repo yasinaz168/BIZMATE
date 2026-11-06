@@ -12,6 +12,11 @@ import type { Product } from "@/types";
  * Semua fungsi immut: mengembalikan array baru, tidak mengubah yang lama.
  * quantity dinormalisasi maksimal 2 angka desimal dan berbatas atas
  * numeric(12,2); nilai ≤ 0 berarti baris dihapus dari keranjang.
+ *
+ * CATATAN STOK: helper isStockDepleted() hanya untuk menonaktifkan
+ * tombol "Tambah" di UI. Pengaman kebenaran tetap RPC
+ * create_sale (database menolak stok tidak cukup) — sini tidak pernah
+ * mengubah aturan stok backend.
  */
 
 export interface CartLine {
@@ -41,6 +46,16 @@ function clampQuantity(quantity: number): number {
  * - Hanya produk AKTIF yang bisa ditambahkan (produk nonaktif diabaikan).
  * - Produk yang sudah ada di keranjang → quantity bertambah.
  */
+/**
+ * Apakah stok produk telah habis? Hanya untuk produk yang DILACAK
+ * (`stock !== null`); produk tanpa pelacakan stok (NULL) selalu
+ * bisa ditambahkan ke keranjang. Pemisahan UI ini, pengaman
+ * kenyataan tetap RPC create_sale.
+ */
+export function isStockDepleted(stock: number | null): boolean {
+  return stock !== null && stock <= 0;
+}
+
 export function addToCart(
   lines: CartLine[],
   product: Product,
